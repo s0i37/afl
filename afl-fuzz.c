@@ -103,6 +103,7 @@ EXP_ST u8  skip_deterministic,        /* Skip deterministic stages?       */
            use_splicing,              /* Recombine input files?           */
            dumb_mode,                 /* Run in non-instrumented mode?    */
            score_changed,             /* Scoring for favorites changed?   */
+           manual_instrumentation = 0,/* For attach mode through PIN      */
            kill_signal,               /* Signal that killed the child     */
            resuming_fuzz,             /* Resuming an older fuzzing job?   */
            timeout_given,             /* Specific timeout given?          */
@@ -1200,7 +1201,10 @@ static inline void classify_counts(u32* mem) {
 
 static void remove_shm(void) {
 
-  shmctl(shm_id, IPC_RMID, NULL);
+  if(manual_instrumentation)
+    shmdt(trace_bits);
+  else
+    shmctl(shm_id, IPC_RMID, NULL);
 
 }
 
@@ -1348,7 +1352,10 @@ EXP_ST void setup_shm(void) {
   memset(virgin_tmout, 255, MAP_SIZE);
   memset(virgin_crash, 255, MAP_SIZE);
 
-  shm_id = shmget(IPC_PRIVATE, MAP_SIZE, IPC_CREAT | IPC_EXCL | 0600);
+  if( getenv(SHM_ENV_VAR) )
+    shm_id = shmget( (key_t)atoi(getenv(SHM_ENV_VAR)), MAP_SIZE, IPC_EXCL | 0600 );
+  else
+    shm_id = shmget(IPC_PRIVATE, MAP_SIZE, IPC_CREAT | IPC_EXCL | 0600);
 
   if (shm_id < 0) PFATAL("shmget() failed");
 
@@ -2580,7 +2587,7 @@ static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem,
 
     if (stop_soon || fault != crash_mode) goto abort_calibration;
 
-    if (!dumb_mode && !stage_cur && !count_bytes(trace_bits)) {
+    if (!dumb_mode && !stage_cur && !count_bytes(trace_bits) && !manual_instrumentation) {
       fault = FAULT_NOINST;
       goto abort_calibration;
     }
@@ -7060,6 +7067,7 @@ static void usage(u8* argv0) {
 
        "  -d            - quick & dirty mode (skips deterministic steps)\n"
        "  -n            - fuzz without instrumentation (dumb mode)\n"
+       "  -N            - fuzz in attach mode through PIN\n"
        "  -x dir        - optional fuzzer dictionary (see README)\n\n"
 
        "Other stuff:\n\n"
@@ -7723,7 +7731,7 @@ int main(int argc, char** argv) {
   gettimeofday(&tv, &tz);
   srandom(tv.tv_sec ^ tv.tv_usec ^ getpid());
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:T:dnCB:S:M:x:Q")) > 0)
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:T:dnNCB:S:M:x:Q")) > 0)
 
     switch (opt) {
 
@@ -7874,6 +7882,10 @@ int main(int argc, char** argv) {
         if (dumb_mode) FATAL("Multiple -n options not supported");
         if (getenv("AFL_DUMB_FORKSRV")) dumb_mode = 2; else dumb_mode = 1;
 
+        break;
+
+      case 'N':
+        manual_instrumentation = 1;
         break;
 
       case 'T': /* banner */
