@@ -79,6 +79,7 @@ static u8  crash_mode,                /* Crash-centric mode?               */
 static volatile u8
            stop_soon,                 /* Ctrl-C pressed?                   */
            child_timed_out;           /* Child timed out?                  */
+static u8 manual_instrumentation = 0; /* For attach mode through PIN       */
 
 
 /* Classify tuple counts. This is a slow & naive version, but good enough here. */
@@ -159,7 +160,10 @@ static inline u8 anything_set(void) {
 static void remove_shm(void) {
 
   if (prog_in) unlink(prog_in); /* Ignore errors */
-  shmctl(shm_id, IPC_RMID, NULL);
+  if(manual_instrumentation)
+    shmdt(trace_bits);
+  else
+    shmctl(shm_id, IPC_RMID, NULL);
 
 }
 
@@ -170,7 +174,10 @@ static void setup_shm(void) {
 
   u8* shm_str;
 
-  shm_id = shmget(IPC_PRIVATE, MAP_SIZE, IPC_CREAT | IPC_EXCL | 0600);
+  if( getenv(SHM_ENV_VAR) )
+    shm_id = shmget( (key_t)atoi(getenv(SHM_ENV_VAR)), MAP_SIZE, IPC_EXCL | 0600 );
+  else
+    shm_id = shmget(IPC_PRIVATE, MAP_SIZE, IPC_CREAT | IPC_EXCL | 0600);
 
   if (shm_id < 0) PFATAL("shmget() failed");
 
@@ -819,6 +826,7 @@ static void usage(u8* argv0) {
        "  -t msec       - timeout for each run (%u ms)\n"
        "  -m megs       - memory limit for child process (%u MB)\n"
        "  -Q            - use binary-only instrumentation (QEMU mode)\n\n"
+       "  -N            - fuzz in attach mode through PIN\n"
 
        "Minimization settings:\n\n"
 
@@ -978,7 +986,7 @@ int main(int argc, char** argv) {
 
   SAYF(cCYA "afl-tmin " cBRI VERSION cRST " by <lcamtuf@google.com>\n");
 
-  while ((opt = getopt(argc,argv,"+i:o:f:m:t:B:xeQ")) > 0)
+  while ((opt = getopt(argc,argv,"+i:o:f:m:t:B:xeQN")) > 0)
 
     switch (opt) {
 
@@ -1088,6 +1096,10 @@ int main(int argc, char** argv) {
         if (mask_bitmap) FATAL("Multiple -B options not supported");
         mask_bitmap = ck_alloc(MAP_SIZE);
         read_bitmap(optarg);
+        break;
+
+      case 'N':
+        manual_instrumentation = 1;
         break;
 
       default:
