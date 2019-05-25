@@ -47,11 +47,12 @@ echo
 
 MEM_LIMIT=100
 TIMEOUT=none
+MANUAL_INSTRUMENTATION_OPT=""
 
 unset IN_DIR OUT_DIR STDIN_FILE EXTRA_PAR MEM_LIMIT_GIVEN \
   AFL_CMIN_CRASHES_ONLY AFL_CMIN_ALLOW_ANY QEMU_MODE
 
-while getopts "+i:o:f:m:t:eQC" opt; do
+while getopts "+i:o:f:m:t:eQNC" opt; do
 
   case "$opt" in 
 
@@ -83,6 +84,9 @@ while getopts "+i:o:f:m:t:eQC" opt; do
          test "$MEM_LIMIT_GIVEN" = "" && MEM_LIMIT=250
          QEMU_MODE=1
          ;;
+    "N")
+         MANUAL_INSTRUMENTATION_OPT="-N"
+         ;;
     "?")
          exit 1
          ;;
@@ -111,6 +115,7 @@ Execution control settings:
   -m megs       - memory limit for child process ($MEM_LIMIT MB)
   -t msec       - run time limit for child process (none)
   -Q            - use binary-only instrumentation (QEMU mode)
+  -N            - fuzz in attach mode through PIN
 
 Minimization settings:
 
@@ -274,12 +279,12 @@ echo "[*] Testing the target binary..."
 
 if [ "$STDIN_FILE" = "" ]; then
 
-  AFL_CMIN_ALLOW_ANY=1 "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/.run_test" -Z $EXTRA_PAR -- "$@" <"$IN_DIR/$FIRST_FILE"
+  AFL_CMIN_ALLOW_ANY=1 "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/.run_test" -Z $EXTRA_PAR $MANUAL_INSTRUMENTATION_OPT -- "$@" <"$IN_DIR/$FIRST_FILE"
 
 else
 
   cp "$IN_DIR/$FIRST_FILE" "$STDIN_FILE"
-  AFL_CMIN_ALLOW_ANY=1 "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/.run_test" -Z $EXTRA_PAR -A "$STDIN_FILE" -- "$@" </dev/null
+  AFL_CMIN_ALLOW_ANY=1 "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/.run_test" -Z $EXTRA_PAR -A "$STDIN_FILE" $MANUAL_INSTRUMENTATION_OPT -- "$@" </dev/null
 
 fi
 
@@ -316,7 +321,7 @@ echo "[*] Obtaining traces for input files in '$IN_DIR'..."
       CUR=$((CUR+1))
       printf "\\r    Processing file $CUR/$IN_COUNT... "
 
-      "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/$fn" -Z $EXTRA_PAR -- "$@" <"$IN_DIR/$fn"
+      "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/$fn" -Z $EXTRA_PAR $MANUAL_INSTRUMENTATION_OPT -- "$@" <"$IN_DIR/$fn"
 
     done < <(ls "$IN_DIR")
 
@@ -329,7 +334,7 @@ echo "[*] Obtaining traces for input files in '$IN_DIR'..."
 
       cp "$IN_DIR/$fn" "$STDIN_FILE"
 
-      "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/$fn" -Z $EXTRA_PAR -A "$STDIN_FILE" -- "$@" </dev/null
+      "$SHOWMAP" -m "$MEM_LIMIT" -t "$TIMEOUT" -o "$TRACE_DIR/$fn" -Z $EXTRA_PAR -A "$STDIN_FILE" $MANUAL_INSTRUMENTATION_OPT -- "$@" </dev/null
 
     done < <(ls "$IN_DIR")
 
