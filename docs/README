@@ -1,3 +1,12 @@
+create shared memory region with 0x10000 length
+__AFL_SHM_ID=$((0x1337)) PIPE_SYNC=/opt/afl/afl_sync pin -follow_execv -pid 12345 -t /path/to/DBI/pin/afl/obj-intel64/cover.so -module libsome.so.0 -exit 0xd7c1
+
+__AFL_SHM_ID=$((0x1337)) AFL_NO_FORKSRV=1 AFL_SKIP_BIN_CHECK=1 ./afl-fuzz -i in -o out -N -- python wrap.py 127.0.0.1 1234
+__AFL_SHM_ID=$((0x1337)) AFL_NO_FORKSRV=1 AFL_SKIP_BIN_CHECK=1 ./afl-analyze -i in/packet.bin -N -- python wrap.py 127.0.0.1 1234
+__AFL_SHM_ID=$((0x1337)) AFL_NO_FORKSRV=1 AFL_SKIP_BIN_CHECK=1 ./afl-showmap -o cov.txt -N -- python wrap.py 127.0.0.1 1234 < in/packet.bin
+__AFL_SHM_ID=$((0x1337)) AFL_NO_FORKSRV=1 AFL_SKIP_BIN_CHECK=1 ./afl-cmin -i out/queue -o in2/ -N -t 5000 -- python wrap.py 127.0.0.1 1234
+__AFL_SHM_ID=$((0x1337)) AFL_NO_FORKSRV=1 AFL_SKIP_BIN_CHECK=1 ./afl-tmin -i in/packet.bin -o in2/packet.bin.min -N -t 5000 -- python wrap.py 127.0.0.1 1234
+
 ==================
 american fuzzy lop
 ==================
