@@ -112,7 +112,7 @@ fi
 
 echo "[*] Uncompressing archive (this will take a while)..."
 
-rm -rf "qemu-${VERSION}" || exit 1
+rm -rf "qemu-${VERSION}"
 tar xf "$ARCHIVE" || exit 1
 
 echo "[+] Unpacking successful."

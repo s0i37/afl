@@ -50,6 +50,8 @@
     if(itb->pc == afl_entry_point) { \
       afl_setup(); \
       afl_forkserver(cpu); \
+    } else if(itb->pc == afl_exit_point) { \
+      _Exit(0); \
     } \
     afl_maybe_log(itb->pc); \
   } while (0)
@@ -66,6 +68,7 @@ static unsigned char *afl_area_ptr;
 /* Exported variables populated by the code patched into elfload.c: */
 
 abi_ulong afl_entry_point, /* ELF entry point (_start) */
+          afl_exit_point,  /* exit point - where stop fuzzing needed */
           afl_start_code,  /* .text start pointer      */
           afl_end_code;    /* .text end pointer        */
 
