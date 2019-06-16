@@ -274,6 +274,7 @@ static struct extra_data* a_extras;   /* Automatically selected extras    */
 static u32 a_extras_cnt;              /* Total number of tokens available */
 
 static u8* (*post_handler)(u8* buf, u32* len);
+static u8* (*fuzz_handler)(u8* buf, u32* len);
 
 /* Interesting values, as per config.h */
 
@@ -1386,6 +1387,17 @@ static void setup_post(void) {
   void* dh;
   u8* fn = getenv("AFL_POST_LIBRARY");
   u32 tlen = 6;
+  void* dfuzz;
+  u8* fuzz = getenv("AFL_FUZZ_LIBRARY");
+
+  if(fuzz)
+  {
+    dfuzz = dlopen(fuzz, RTLD_NOW);
+    if(!dfuzz) FATAL("%s", dlerror());
+    fuzz_handler = dlsym(dfuzz, "fuzz");
+    if(!fuzz_handler) FATAL("Symbol 'fuzz' not found.");
+  }
+
 
   if (!fn) return;
 
@@ -2488,7 +2500,7 @@ static void write_to_testcase(void* mem, u32 len) {
 
   ck_write(fd, mem, len, out_file);
 
-  if (!out_file) {
+  if (!out_file && !fuzz_handler) {
 
     if (ftruncate(fd, len)) PFATAL("ftruncate() failed");
     lseek(fd, 0, SEEK_SET);

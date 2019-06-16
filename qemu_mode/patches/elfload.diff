@@ -20,15 +20,17 @@
      for (i = 0; i < ehdr->e_phnum; i++) {
          struct elf_phdr *eppnt = phdr + i;
          if (eppnt->p_type == PT_LOAD) {
-@@ -2118,9 +2122,11 @@
+@@ -2118,9 +2122,13 @@
              if (elf_prot & PROT_EXEC) {
                  if (vaddr < info->start_code) {
                      info->start_code = vaddr;
 +                    if (!afl_start_code) afl_start_code = vaddr;
++                    if (afl_entry_point) afl_entry_point += info->start_code;
                  }
                  if (vaddr_ef > info->end_code) {
                      info->end_code = vaddr_ef;
 +                    if (!afl_end_code) afl_end_code = vaddr_ef;
++                    if (afl_exit_point) afl_exit_point += info->start_code;
                  }
              }
              if (elf_prot & PROT_WRITE) {
