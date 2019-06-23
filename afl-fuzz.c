@@ -2499,8 +2499,9 @@ static void write_to_testcase(void* mem, u32 len) {
   } else lseek(fd, 0, SEEK_SET);
 
   ck_write(fd, mem, len, out_file);
+  if(fuzz_handler) fuzz_handler(mem, len);
 
-  if (!out_file && !fuzz_handler) {
+  if (!out_file) {
 
     if (ftruncate(fd, len)) PFATAL("ftruncate() failed");
     lseek(fd, 0, SEEK_SET);

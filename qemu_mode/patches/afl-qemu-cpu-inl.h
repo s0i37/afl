@@ -50,7 +50,7 @@
     if(itb->pc == afl_entry_point) { \
       afl_setup(); \
       afl_forkserver(cpu); \
-    } else if(itb->pc == afl_exit_point) { \
+    } else if(itb->pc == afl_exit_point && afl_area_ptr) { \
       _Exit(0); \
     } \
     afl_maybe_log(itb->pc); \
@@ -65,7 +65,7 @@
 
 static unsigned char *afl_area_ptr;
 
-FILE *debug = 0;
+//FILE *debug = 0;
 
 /* Exported variables populated by the code patched into elfload.c: */
 
@@ -170,9 +170,9 @@ static void afl_forkserver(CPUState *cpu) {
 
   if (!afl_area_ptr) return;
 
-  fprintf(debug, "afl_entry_point=0x%x\n", afl_entry_point);
-  fprintf(debug, "afl_exit_point=0x%x\n", afl_exit_point);
-  fflush(debug);
+  //fprintf(debug, "afl_entry_point=0x%x\n", afl_entry_point);
+  //fprintf(debug, "afl_exit_point=0x%x\n", afl_exit_point);
+  //fflush(debug);
 
   /* Tell the parent that we're alive. If the parent doesn't want
      to talk, assume that we're not running in forkserver mode. */
@@ -239,14 +239,14 @@ static inline void afl_maybe_log(abi_ulong cur_loc) {
 
   static __thread abi_ulong prev_loc;
 
-  if(!debug)
-  {
-    debug = fopen("/tmp/qemu-user.log", "w");
-    fprintf(debug, "afl_entry_point=0x%x\n", afl_entry_point);
-    fprintf(debug, "afl_exit_point=0x%x\n", afl_exit_point);
-  }
-  fprintf(debug, "0x%x\n", cur_loc);
-  fflush(debug);
+  //if(!debug)
+  //{
+  //  debug = fopen("/tmp/qemu-user.log", "w");
+  //  fprintf(debug, "afl_entry_point=0x%x\n", afl_entry_point);
+  //  fprintf(debug, "afl_exit_point=0x%x\n", afl_exit_point);
+  //}
+  //fprintf(debug, "0x%x\n", cur_loc);
+  //fflush(debug);
 
   /* Optimize for cur_loc > afl_end_code, which is the most likely case on
      Linux systems. */
