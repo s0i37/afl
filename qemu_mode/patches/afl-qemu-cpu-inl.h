@@ -65,10 +65,9 @@
 
 static unsigned char *afl_area_ptr;
 
-//FILE *debug = 0;
-
 /* Exported variables populated by the code patched into elfload.c: */
 
+FILE *dump_trace = 0;
 abi_ulong afl_entry_point, /* ELF entry point (_start) */
           afl_exit_point,  /* exit point - where stop fuzzing needed */
           afl_start_code,  /* .text start pointer      */
@@ -168,11 +167,13 @@ static void afl_forkserver(CPUState *cpu) {
 
   static unsigned char tmp[4];
 
-  if (!afl_area_ptr) return;
+  if(dump_trace)
+  {
+    fprintf(dump_trace, "afl_entry_point\n");
+    fflush(dump_trace);
+  }
 
-  //fprintf(debug, "afl_entry_point=0x%x\n", afl_entry_point);
-  //fprintf(debug, "afl_exit_point=0x%x\n", afl_exit_point);
-  //fflush(debug);
+  if (!afl_area_ptr) return;
 
   /* Tell the parent that we're alive. If the parent doesn't want
      to talk, assume that we're not running in forkserver mode. */
@@ -239,14 +240,12 @@ static inline void afl_maybe_log(abi_ulong cur_loc) {
 
   static __thread abi_ulong prev_loc;
 
-  //if(!debug)
-  //{
-  //  debug = fopen("/tmp/qemu-user.log", "w");
-  //  fprintf(debug, "afl_entry_point=0x%x\n", afl_entry_point);
-  //  fprintf(debug, "afl_exit_point=0x%x\n", afl_exit_point);
-  //}
-  //fprintf(debug, "0x%x\n", cur_loc);
-  //fflush(debug);
+
+  if(dump_trace)
+  {
+    fprintf(dump_trace, "0x%x\n", cur_loc);
+    fflush(dump_trace);
+  }
 
   /* Optimize for cur_loc > afl_end_code, which is the most likely case on
      Linux systems. */

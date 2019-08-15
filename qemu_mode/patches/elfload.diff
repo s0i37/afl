@@ -5,37 +5,34 @@
  #define ELF_OSABI   ELFOSABI_SYSV
  
 +extern abi_ulong afl_entry_point, afl_exit_point, afl_start_code, afl_end_code;
-+//static FILE *debug = 0;
++extern FILE *dump_trace;
 +
  /* from personality.h */
  
  /*
-@@ -2085,6 +2087,14 @@
+@@ -2085,6 +2087,13 @@
      info->brk = 0;
      info->elf_flags = ehdr->e_flags;
  
-+    //if(!debug) debug = fopen("/tmp/qemu-user-load.log", "w");
 +    if (!afl_entry_point) {
 +        afl_entry_point = info->entry;
-+        if( getenv("AFL_ENTRY_POINT") ) afl_entry_point = atoi( getenv("AFL_ENTRY_POINT") );
 +    }
-+    if(!afl_exit_point && getenv("AFL_EXIT_POINT") ) afl_exit_point = atoi( getenv("AFL_EXIT_POINT") );
-+    //fprintf(debug, "[*] 0x%x %s\n", info->load_addr, image_name); fflush(debug);
++    if( getenv("AFL_ENTRY_POINT") ) afl_entry_point = atoi( getenv("AFL_ENTRY_POINT") );
++    if( getenv("AFL_EXIT_POINT") ) afl_exit_point = atoi( getenv("AFL_EXIT_POINT") );
++    if( getenv("AFL_QEMU_TRACE") ) dump_trace = fopen(getenv("AFL_QEMU_TRACE"), "w");
 +
      for (i = 0; i < ehdr->e_phnum; i++) {
          struct elf_phdr *eppnt = phdr + i;
          if (eppnt->p_type == PT_LOAD) {
-@@ -2118,9 +2122,13 @@
+@@ -2118,9 +2122,11 @@
              if (elf_prot & PROT_EXEC) {
                  if (vaddr < info->start_code) {
                      info->start_code = vaddr;
 +                    if (!afl_start_code) afl_start_code = vaddr;
-+                    if ( getenv("AFL_ENTRY_POINT") && afl_entry_point == atoi( getenv("AFL_ENTRY_POINT") ) ) afl_entry_point += info->load_addr;
                  }
                  if (vaddr_ef > info->end_code) {
                      info->end_code = vaddr_ef;
 +                    if (!afl_end_code) afl_end_code = vaddr_ef;
-+                    if ( getenv("AFL_EXIT_POINT") && afl_exit_point == atoi( getenv("AFL_EXIT_POINT") ) ) afl_exit_point += info->load_addr;
                  }
              }
              if (elf_prot & PROT_WRITE) {
