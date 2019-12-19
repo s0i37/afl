@@ -17,8 +17,8 @@
 +    if (!afl_entry_point) {
 +        afl_entry_point = info->entry;
 +    }
-+    if( getenv("AFL_ENTRY_POINT") ) afl_entry_point = atoi( getenv("AFL_ENTRY_POINT") );
-+    if( getenv("AFL_EXIT_POINT") ) afl_exit_point = atoi( getenv("AFL_EXIT_POINT") );
++    if( getenv("AFL_ENTRY_POINT") ) afl_entry_point = atol( getenv("AFL_ENTRY_POINT") );
++    if( getenv("AFL_EXIT_POINT") ) afl_exit_point = atol( getenv("AFL_EXIT_POINT") );
 +    if( getenv("AFL_QEMU_TRACE") ) dump_trace = fopen(getenv("AFL_QEMU_TRACE"), "w");
 +
      for (i = 0; i < ehdr->e_phnum; i++) {

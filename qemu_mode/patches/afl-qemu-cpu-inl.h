@@ -243,7 +243,7 @@ static inline void afl_maybe_log(abi_ulong cur_loc) {
 
   if(dump_trace)
   {
-    fprintf(dump_trace, "0x%x\n", cur_loc);
+    fprintf(dump_trace, "0x%lx\n", cur_loc);
     fflush(dump_trace);
   }
 

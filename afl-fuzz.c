@@ -274,7 +274,7 @@ static struct extra_data* a_extras;   /* Automatically selected extras    */
 static u32 a_extras_cnt;              /* Total number of tokens available */
 
 static u8* (*post_handler)(u8* buf, u32* len);
-static u8* (*fuzz_handler)(u8* buf, u32* len);
+static u8* (*fuzz_handler)(u8* buf, u32 len);
 
 /* Interesting values, as per config.h */
 
