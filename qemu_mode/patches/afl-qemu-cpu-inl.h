@@ -205,7 +205,6 @@ static void afl_forkserver(CPUState *cpu) {
     if (!child_pid) {
 
       /* Child process. Close descriptors and run free. */
-
       afl_fork_child = 1;
       close(FORKSRV_FD);
       close(FORKSRV_FD + 1);
@@ -240,10 +239,9 @@ static inline void afl_maybe_log(abi_ulong cur_loc) {
 
   static __thread abi_ulong prev_loc;
 
-
   if(dump_trace)
   {
-    fprintf(dump_trace, "0x%lx\n", cur_loc);
+    fprintf(dump_trace, "[%d] 0x%lx\n", getpid(), cur_loc);
     fflush(dump_trace);
   }
 
