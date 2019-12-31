@@ -27,6 +27,7 @@
  */
 
 #include <sys/shm.h>
+#include <signal.h>
 #include "../../config.h"
 
 /***************************
@@ -47,11 +48,11 @@
    regular instrumentation injected via afl-as.h. */
 
 #define AFL_QEMU_CPU_SNIPPET2 do { \
-    if(itb->pc == afl_entry_point) { \
+    if(itb->pc == afl_entry_point && !afl_area_ptr) { \
       afl_setup(); \
       afl_forkserver(cpu); \
     } else if(itb->pc == afl_exit_point && afl_area_ptr) { \
-      _Exit(0); \
+      __Exit(0); \
     } \
     afl_maybe_log(itb->pc); \
   } while (0)
@@ -63,15 +64,19 @@
 
 /* This is equivalent to afl-as.h: */
 
-static unsigned char *afl_area_ptr;
+static unsigned char *afl_area_ptr = 0;
 
 /* Exported variables populated by the code patched into elfload.c: */
 
-FILE *dump_trace = 0;
 abi_ulong afl_entry_point, /* ELF entry point (_start) */
           afl_exit_point,  /* exit point - where stop fuzzing needed */
           afl_start_code,  /* .text start pointer      */
           afl_end_code;    /* .text end pointer        */
+
+/* For debug purpose*/
+
+FILE *dump_trace = 0;
+uint32_t *coverage_bb = 0;
 
 /* Set in the child process in forkserver mode: */
 
@@ -81,6 +86,12 @@ unsigned int afl_forksrv_pid;
 /* Instrumentation ratio: */
 
 static unsigned int afl_inst_rms = MAP_SIZE;
+struct Childs {
+  char signal_start;
+  char signal_stop;
+  unsigned int PIDs[100];
+  unsigned int count;
+} *childs = 0;
 
 /* Function declarations. */
 
@@ -108,6 +119,19 @@ static inline TranslationBlock *tb_find(CPUState*, TranslationBlock*, int);
  * ACTUAL IMPLEMENTATION *
  *************************/
 
+static void stop_execution(int sig)
+{
+  _Exit(0);
+}
+
+static void __Exit(int ret)
+{
+  /* one of child has reached AFL_EXIT_POINT */
+  childs->signal_stop = '\x01';
+  for(unsigned int i = 0; i < childs->count; i++)
+    kill(childs->PIDs[i], SIGUSR1);
+}
+
 /* Set up SHM region and initialize other stuff. */
 
 static void afl_setup(void) {
@@ -134,6 +158,7 @@ static void afl_setup(void) {
 
     shm_id = atoi(id_str);
     afl_area_ptr = shmat(shm_id, NULL, 0);
+    signal(SIGUSR1, stop_execution);
 
     if (afl_area_ptr == (void*)-1) exit(1);
 
@@ -141,7 +166,6 @@ static void afl_setup(void) {
        so that the parent doesn't give up on us. */
 
     if (inst_r) afl_area_ptr[0] = 1;
-
 
   }
 
@@ -167,13 +191,17 @@ static void afl_forkserver(CPUState *cpu) {
 
   static unsigned char tmp[4];
 
+  if (!afl_area_ptr) return;
+
+  /* only one forkserver init allowed */
+  if(childs->signal_start) return;
+  childs->signal_start = 1;
+
   if(dump_trace)
   {
     fprintf(dump_trace, "afl_entry_point\n");
     fflush(dump_trace);
   }
-
-  if (!afl_area_ptr) return;
 
   /* Tell the parent that we're alive. If the parent doesn't want
      to talk, assume that we're not running in forkserver mode. */
@@ -209,6 +237,11 @@ static void afl_forkserver(CPUState *cpu) {
       close(FORKSRV_FD);
       close(FORKSRV_FD + 1);
       close(t_fd[0]);
+
+      /* reset signal flag */
+      childs->signal_stop = '\x00';
+      childs->count = 0;
+      childs->PIDs[childs->count++] = getpid();
       return;
 
     }
@@ -241,15 +274,25 @@ static inline void afl_maybe_log(abi_ulong cur_loc) {
 
   if(dump_trace)
   {
-    fprintf(dump_trace, "[%d] 0x%lx\n", getpid(), cur_loc);
+    if(! coverage_bb)
+      coverage_bb = shmat(shmget(IPC_PRIVATE, 0xFFFFFF, IPC_CREAT | IPC_EXCL | 0600), NULL, 0);
+    coverage_bb[cur_loc % 0xFFFFFF / 4]++;
+    fprintf(dump_trace, "[%d] 0x%lx %u\n", getpid(), cur_loc, coverage_bb[cur_loc % 0xFFFFFF / 4]);
     fflush(dump_trace);
   }
+
+  if(!childs)
+    childs = (struct Childs *)shmat(shmget(IPC_PRIVATE, sizeof(struct Childs), IPC_CREAT | IPC_EXCL | 0600), NULL, 0);
 
   /* Optimize for cur_loc > afl_end_code, which is the most likely case on
      Linux systems. */
 
   if (cur_loc > afl_end_code || cur_loc < afl_start_code || !afl_area_ptr)
     return;
+
+  /* if one of the child or siblings processes has finished - end of this fuzz iteration */
+  if( childs->signal_stop == '\x01' )
+    __Exit(0);
 
   /* Looks like QEMU always maps to fixed locations, so ASAN is not a
      concern. Phew. But instruction addresses may be aligned. Let's mangle

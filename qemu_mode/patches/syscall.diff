@@ -1,15 +1,30 @@
---- qemu-2.10.0-rc3-clean/linux-user/syscall.c	2017-08-15 11:39:41.000000000 -0700
-+++ qemu-2.10.0-rc3/linux-user/syscall.c	2017-08-22 14:34:03.193088186 -0700
-@@ -116,6 +116,8 @@
+--- syscall_orig.c	2019-12-27 17:51:24.532317538 +0500
++++ qemu-2.10.0/linux-user/syscall.c	2019-12-27 22:40:13.992341174 +0500
+@@ -116,6 +116,14 @@
  
  #include "qemu.h"
  
 +extern unsigned int afl_forksrv_pid;
++extern struct Childs {
++  char signal_stop;
++  unsigned int PIDs[100];
++  unsigned int count;
++} *childs;
++FILE *f = 0;
 +
  #ifndef CLONE_IO
  #define CLONE_IO                0x80000000      /* Clone io context */
  #endif
-@@ -11688,8 +11690,21 @@
+@@ -9812,6 +9820,8 @@
+         ret = get_errno(do_fork(cpu_env, arg2, arg1, arg3, arg5, arg4));
+ #else
+         ret = get_errno(do_fork(cpu_env, arg1, arg2, arg3, arg5, arg4));
++        if(childs && ret)
++          childs->PIDs[childs->count++] = ret;
+ #endif
+         break;
+ #ifdef __NR_exit_group
+@@ -11688,8 +11698,21 @@
          break;
  
      case TARGET_NR_tgkill:

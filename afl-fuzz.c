@@ -1396,6 +1396,7 @@ static void setup_post(void) {
     if(!dfuzz) FATAL("%s", dlerror());
     fuzz_handler = dlsym(dfuzz, "fuzz");
     if(!fuzz_handler) FATAL("Symbol 'fuzz' not found.");
+    //fuzz_handler("hello", tlen);  /* for post-fork fuzzing (for reaching AFL_ENTRY_POINT) */
   }
 
 
@@ -2276,7 +2277,6 @@ EXP_ST void init_forkserver(char** argv) {
 
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update trace_bits[]. */
-
 static u8 run_target(char** argv, u32 timeout) {
 
   static struct itimerval it;
@@ -2528,9 +2528,15 @@ static void write_with_gap(void* mem, u32 len, u32 skip_at, u32 skip_len) {
 
   } else lseek(fd, 0, SEEK_SET);
 
-  if (skip_at) ck_write(fd, mem, skip_at, out_file);
+  if (skip_at) {
+    ck_write(fd, mem, skip_at, out_file);
+    if(fuzz_handler) fuzz_handler(mem, len);
+  }
 
-  if (tail_len) ck_write(fd, mem + skip_at + skip_len, tail_len, out_file);
+  if (tail_len) {
+    ck_write(fd, mem + skip_at + skip_len, tail_len, out_file);
+    if(fuzz_handler) fuzz_handler(mem + skip_at + skip_len, tail_len);
+  }
 
   if (!out_file) {
 
